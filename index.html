@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Radio Gamer: música ambiente generada en vivo para jugar, construir o streamear sin copyright.">
+<title>Radio Gamer — Discohikorybrs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#04060d;--panel:rgba(15,20,35,.55);--line:rgba(139,92,246,.2);--text:#f5f7ff;--muted:#9da8c5;--a:#8b5cf6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,sans-serif;line-height:1.6}
+.bg-grid{position:fixed;inset:0;z-index:-2;opacity:.14;background-image:linear-gradient(#293354 1px,transparent 1px),linear-gradient(90deg,#293354 1px,transparent 1px);background-size:44px 44px}
+header{max-width:900px;margin:auto;padding:20px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50;background:rgba(4,6,13,.8);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.06)}
+.brand{font:700 16px 'Space Grotesk';color:#fff;text-decoration:none}
+.back{color:#b39aff;text-decoration:none;font-size:13px;border:1px solid var(--line);padding:8px 14px;border-radius:8px}
+main{max-width:900px;margin:auto;padding:24px}
+.hero-t{text-align:center;padding:26px 0 6px}
+.hero-t h1{font:700 clamp(28px,4.5vw,44px) 'Space Grotesk';margin:10px 0;background:linear-gradient(90deg,#fff 25%,#f0abfc);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 24px rgba(240,171,252,.3))}
+.eyebrow{color:#f0abfc;font-size:10px;font-family:'Press Start 2P',monospace;letter-spacing:2px}
+.lead{color:var(--muted);max-width:620px;margin:0 auto}
+.glass{background:var(--panel);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);border-radius:15px;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.card{padding:24px;margin:18px 0}
+.stations{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin:16px 0}
+.station{padding:18px 10px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer;font-size:14px;font-weight:700}
+.station small{display:block;color:var(--muted);font-weight:400;font-size:11px;margin-top:4px}
+.station.on{border-color:#f0abfc;box-shadow:0 0 24px rgba(240,171,252,.3)}
+#viz{width:100%;height:110px;border-radius:10px;background:rgba(0,0,0,.35);margin:14px 0}
+.mix{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px}
+.mix label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+input[type=range]{width:100%;accent-color:#c084fc;padding:0;border:none;background:transparent}
+.rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;justify-content:center;align-items:center}
+.btn{padding:11px 20px;border:1px solid var(--line);border-radius:10px;font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,.04);cursor:pointer}
+select{font-family:inherit;color:#fff;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:11px;font-size:13px}
+.muted{color:var(--muted);font-size:13px}
+h2.st{font:700 20px 'Space Grotesk';margin:0 0 4px}
+#sleepInfo{font-size:12px;color:var(--muted)}
+footer{text-align:center;padding:34px 20px;color:var(--muted);font-size:12px;border-top:1px solid rgba(255,255,255,.06);margin-top:30px}
+footer strong{color:#fff}
+.visits{margin-top:10px;font-size:13px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.mix,.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+<header>
+  <a class="back" href="https://discohikory.github.io/Portafolio/">← Portafolio</a>
+  <a class="brand" href="#">📻 Radio Gamer</a>
+</header>
+<main>
+  <div class="hero-t">
+    <p class="eyebrow">MÚSICA GENERADA EN VIVO · SIN COPYRIGHT</p>
+    <h1>Radio Gamer</h1>
+    <p class="lead">Ambiente infinito compuesto en tu navegador. Úsalo de fondo para jugar o streamear sin strikes.</p>
+  </div>
+  <div class="card glass">
+    <h2 class="st">🎚️ Estaciones</h2>
+    <div class="stations" id="stations"></div>
+    <canvas id="viz" width="600" height="110"></canvas>
+    <div class="rowbtns">
+      <button class="btn" id="playBtn" type="button" style="font-size:16px;padding:12px 34px">▶ Escuchar</button>
+      <button class="btn" id="stopBtn" type="button">⏹ Parar</button>
+      <select id="sleep"><option value="0">Sin temporizador</option><option value="15">Apagar en 15 min</option><option value="30">Apagar en 30 min</option><option value="60">Apagar en 60 min</option><option value="90">Apagar en 90 min</option></select>
+    </div>
+    <p class="muted center" id="sleepInfo" style="text-align:center"></p>
+  </div>
+  <div class="card glass">
+    <h2 class="st">🎛️ Mezclador</h2>
+    <div class="mix">
+      <label>Volumen general<input type="range" id="vMaster" min="0" max="100" value="80"></label>
+      <label>Melodía<input type="range" id="vMel" min="0" max="100" value="80"></label>
+      <label>Bajo y batería<input type="range" id="vBass" min="0" max="100" value="80"></label>
+      <label>Lluvia y ambiente<input type="range" id="vAmb" min="0" max="100" value="70"></label>
+    </div>
+  </div>
+</main>
+<section style="max-width:900px;margin:6px auto 0;padding:0 24px">
+  <div class="card glass">
+    <h2 class="st">🚀 Mis proyectos</h2>
+    <div class="grid2" id="projLinks"></div>
+  </div>
+</section>
+<footer>© 2026 Daniel Esteban Vera Fernandez · <strong>Discohikorybrs</strong> · Todos los derechos reservados.<br><small>Música sintetizada en vivo, libre de copyright. Hecho con ⛏️</small><div class="visits">👁 <span id="visitCount">…</span> visitas</div></footer>
+<script>
+const PROJS=[["Portfolio principal","https://discohikory.github.io/Portafolio/"],["Staff Toolkit","https://discohikory.github.io/Staff-Toolkit/"],["Wiki de Comandos","https://discohikory.github.io/Wiki-Comandos/"],["Quiz Staff","https://discohikory.github.io/Quiz-Staff/"],["Status en vivo","https://discohikory.github.io/Server-Status/"],["Guía de Encantamientos","https://discohikory.github.io/Guia-Encantamientos/"],["Crónicas del Staff","https://discohikory.github.io/Cronicas/"],["Centro de comunidad","https://discohikory.github.io/Comunidad/"],["PlayerCards","https://discohikory.github.io/PlayerCards/"]];
+document.getElementById('projLinks').innerHTML=PROJS.map(p=>`<div><h3 style="margin:6px 0">${p[0]}</h3><div class="rowbtns"><a class="btn" href="${p[1]}">Abrir ↗</a></div></div>`).join('');
+const ST=[{id:"chill",n:"🌙 Chill",d:"Acordes suaves + vinilo"},{id:"epico",n:"⚔️ Épico",d:"Graves + tambores"},{id:"cueva",n:"🕳️ Cueva",d:"Ecos y gotas"},{id:"noche",n:"🌧️ Noche",d:"Lluvia y piano lento"}];
+let cur="chill",playing=false;
+const box=document.getElementById('stations');
+box.innerHTML=ST.map(s=>`<button class="station${s.id===cur?" on":""}" data-st="${s.id}">${s.n}<small>${s.d}</small></button>`).join('');
+box.querySelectorAll('[data-st]').forEach(b=>b.addEventListener('click',()=>{
+  cur=b.dataset.st;
+  box.querySelectorAll('.station').forEach(x=>x.classList.toggle('on',x===b));
+  if(playing)restart();
+}));
+let AC=null,gM,gMel,gBass,gAmb,live=null,seqT=null,sleepT=null,sleepEnd=0;
+function ctx(){
+  if(!AC){
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    gM=AC.createGain();gMel=AC.createGain();gBass=AC.createGain();gAmb=AC.createGain();
+    gMel.connect(gM);gBass.connect(gM);gAmb.connect(gM);
+    const an=AC.createAnalyser();an.fftSize=64;gM.connect(an);an.connect(AC.destination);
+    drawViz(an);
+    const noise=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);
+    const dd=noise.getChannelData(0);
+    for(let i=0;i<dd.length;i++)dd[i]=Math.random()*2-1;
+    AC._noise=noise;
+  }
+  if(AC.state==='suspended')AC.resume();
+  return AC;
+}
+function env(g,t0,a,peak,dur){
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(peak,t0+a);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+}
+function tone(freq,t0,dur,type,vol,dest,slide){
+  const c=ctx(),o=c.createOscillator(),g=c.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(freq,t0);
+  if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(25,slide),t0+dur);
+  env(g,t0,0.02,vol,dur);
+  o.connect(g);g.connect(dest||gMel);
+  o.start(t0);o.stop(t0+dur+0.05);
+  live.nodes.push(o);
+}
+function noiseHit(t0,dur,vol,fType,fFreq,dest){
+  const c=ctx(),s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+  s.buffer=c._noise;s.loop=true;
+  f.type=fType;f.frequency.value=fFreq;
+  env(g,t0,0.005,vol,dur);
+  s.connect(f);f.connect(g);g.connect(dest||gBass);
+  s.start(t0);s.stop(t0+dur+0.05);
+  live.nodes.push(s);
+}
+const CHORDS={chill:[[220,261.6,329.6],[174.6,220,261.6],[196,246.9,293.7],[146.8,220,293.7]],epico:[[73.4,110,146.8],[58.3,87.3,116.5],[65.4,98,130.8],[87.3,130.8,174.6]],cueva:[[55,65.4,82.4],[49,58.3,73.4]],noche:[[220,277.2,329.6],[174.6,220,261.6]]};
+const PENTA={chill:[220,261.6,293.7,329.6,392],epico:[146.8,174.6,196,220,261.6],cueva:[880,1046.5,1174.7,1318.5,1568],noche:[220,196,174.6,146.8,164.8]};
+function startRain(){
+  const c=ctx(),s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();
+  s.buffer=c._noise;s.loop=true;f.type='lowpass';f.frequency.value=900;g.gain.value=0.05;
+  s.connect(f);f.connect(g);g.connect(gAmb);s.start();
+  live.nodes.push(s);live.rain=g;
+}
+function startVinyl(){
+  const tick=()=>{if(!live)return;noiseHit(AC.currentTime,0.03,0.02+Math.random()*0.03,'highpass',5000,gAmb);live.timers.push(setTimeout(tick,150+Math.random()*700))};
+  tick();
+}
+function startEngine(){
+  const c=ctx();
+  live={nodes:[],timers:[],step:0,chord:0};
+  startVinyl();
+  if(cur==="noche")startRain();
+  const loop=()=>{
+    if(!live)return;
+    const t=c.currentTime+0.05,s=live.step%16;
+    if(cur==="chill"){
+      if(s%4===0)tone(65.4,t,0.5,'sine',0.25,gBass,40);
+      if(s%4===2)noiseHit(t,0.08,0.06,'highpass',6000,gBass);
+      if(s===0){const ch=CHORDS.chill[live.chord%4];live.chord++;ch.forEach(f=>tone(f,t,3.4,'triangle',0.07,gMel))}
+      if(Math.random()<0.4&&s%2===0){const p=PENTA.chill; tone(p[Math.floor(Math.random()*p.length)],t,1.2,'sine',0.09,gMel)}
+    }else if(cur==="epico"){
+      if([0,6,8,14].includes(s))tone(70,t,0.4,'sine',0.35,gBass,38);
+      if(s===4||s===12)noiseHit(t,0.25,0.2,'bandpass',1800,gBass);
+      if(s%8===0){const ch=CHORDS.epico[(live.chord++)%4];ch.forEach(f=>tone(f,t,2.2,'sawtooth',0.035,gMel))}
+      if(Math.random()<0.3){const p=PENTA.epico;tone(p[Math.floor(Math.random()*p.length)]*2,t,0.8,'square',0.03,gMel)}
+    }else if(cur==="cueva"){
+      if(s===0){const ch=CHORDS.cueva[(live.chord++)%2];ch.forEach(f=>tone(f,t,3.8,'sine',0.1,gMel))}
+      if(Math.random()<0.35){const p=PENTA.cueva;tone(p[Math.floor(Math.random()*p.length)],t,1.6,'sine',0.07,gMel)}
+      if(s===8)tone(41.2,t,1.5,'sine',0.22,gBass,30);
+    }else{
+      if(s===0){const ch=CHORDS.noche[(live.chord++)%2];ch.forEach(f=>tone(f,t,3.6,'triangle',0.06,gMel))}
+      if(s%8===4){const p=PENTA.noche;tone(p[Math.floor(Math.random()*p.length)],t,2.2,'triangle',0.08,gMel)}
+    }
+    live.step++;
+  };
+  loop();
+  live.timers.push(setInterval(loop,300));
+}
+function kill(){
+  if(!live)return;
+  live.timers.forEach(t=>clearTimeout(t)+clearInterval(t));
+  live.nodes.forEach(n=>{try{n.stop()}catch(e){}try{n.disconnect()}catch(e){}});
+  live=null;
+}
+function restart(){kill();startEngine()}
+function setMixer(){
+  if(!AC)return;
+  gM.gain.value=document.getElementById('vMaster').value/100*0.9;
+  gMel.gain.value=document.getElementById('vMel').value/100;
+  gBass.gain.value=document.getElementById('vBass').value/100;
+  gAmb.gain.value=document.getElementById('vAmb').value/100;
+}
+["vMaster","vMel","vBass","vAmb"].forEach(id=>document.getElementById(id).addEventListener('input',setMixer));
+document.getElementById('playBtn').addEventListener('click',()=>{
+  ctx();setMixer();
+  if(!playing){playing=true;startEngine();document.getElementById('playBtn').textContent='⏸ Pausar'}
+  else{playing=false;kill();document.getElementById('playBtn').textContent='▶ Escuchar'}
+});
+document.getElementById('stopBtn').addEventListener('click',()=>{playing=false;kill();document.getElementById('playBtn').textContent='▶ Escuchar'});
+document.getElementById('sleep').addEventListener('change',e=>{
+  clearTimeout(sleepT);
+  const m=Number(e.target.value),info=document.getElementById('sleepInfo');
+  if(!m){info.textContent='';return}
+  sleepEnd=Date.now()+m*60000;
+  info.textContent='Se apagará en '+m+' min.';
+  const tick=()=>{
+    const left=sleepEnd-Date.now();
+    if(left<=0){playing=false;kill();document.getElementById('playBtn').textContent='▶ Escuchar';info.textContent='';e.target.value='0';return}
+    info.textContent='Se apaga en '+Math.ceil(left/60000)+' min.';
+    sleepT=setTimeout(tick,20000);
+  };
+  sleepT=setTimeout(tick,20000);
+});
+function drawViz(an){
+  const cv=document.getElementById('viz'),x=cv.getContext('2d');
+  const data=new Uint8Array(an.frequencyBinCount);
+  (function frame(){
+    requestAnimationFrame(frame);
+    an.getByteFrequencyData(data);
+    x.clearRect(0,0,cv.width,cv.height);
+    const n=28,bw=cv.width/n;
+    for(let i=0;i<n;i++){
+      const v=data[Math.floor(i*data.length/n)]/255;
+      const h=Math.max(3,v*cv.height);
+      const g=x.createLinearGradient(0,cv.height,0,cv.height-h);
+      g.addColorStop(0,'#8b5cf6');g.addColorStop(1,'#f0abfc');
+      x.fillStyle=g;
+      x.fillRect(i*bw+2,cv.height-h,bw-4,h);
+    }
+  })();
+}
+(function(){
+  var el=document.getElementById('visitCount');
+  if(!el)return;
+  function fmt(n){n=Number(n)||0;return n>=1000?(n/1000).toFixed(1).replace('.',',').replace(',0','')+' mil':String(n)}
+  fetch('https://api.jsonbin.io/v3/b/6aac6a86ffd5d1605313c161/latest',{headers:{'X-Access-Key':'$2a$10$XbVd43wzBhlIfE1632782ePKNz5e/MaX25U3NJ5JRIBKtJt0ILnXC'}})
+  .then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){
+    var v=(j.record&&j.record.visits)||{};
+    v.radio=(v.radio||0)+1;
+    el.textContent=fmt(v.radio);
+    fetch('https://api.jsonbin.io/v3/b/6aac6a86ffd5d1605313c161',{method:'PUT',headers:{'Content-Type':'application/json','X-Access-Key':'$2a$10$XbVd43wzBhlIfE1632782ePKNz5e/MaX25U3NJ5JRIBKtJt0ILnXC','X-Bin-Versioning':'false'},body:JSON.stringify({visits:v})}).catch(function(){});
+  }).catch(function(){el.textContent='—'});
+})();
+</script>
+</body>
+</html>
