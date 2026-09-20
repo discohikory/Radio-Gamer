@@ -107,6 +107,7 @@ body.hasbar{padding-bottom:110px}
     <div class="gchips" id="gchips"></div>
     <div class="gchips"><button class="gchip" id="srcBtn" type="button">🆓 Solo completas: off</button><button class="gchip" id="likesBtn" type="button">❤️ Mis me gusta (<span id="likesN">0</span>)</button><button class="gchip" id="expBtn" type="button">🚫 Ocultar 🔞 E</button></div>
     <div class="tracks" id="tracks"><p class="muted" style="text-align:center">Busca algo o toca un género 🎧</p></div>
+    <div id="fullErr" class="glass" style="display:none;padding:14px;margin-top:10px;font-size:13px"></div>
     <p class="muted" style="font-size:11px;margin:10px 0 0">Toca una canción = preview 30s · botón ▶ = versión COMPLETA automática · 🟢/🍎 = app oficial.</p>
   </div>
   <div class="card glass" id="ytCard" style="display:none">
@@ -342,6 +343,7 @@ function fmtDur(s){s=Math.round(Number(s)||0);return Math.floor(s/60)+':'+String
 async function doSearchAud(term){
   const box=document.getElementById('tracks');
   box.innerHTML='<p class="muted" style="text-align:center">Buscando completas… ⏳</p>';
+  document.getElementById('fullErr').style.display='none';
   try{
     const c=new AbortController();const t=setTimeout(()=>c.abort(),20000);
     const r=await fetch('https://discoveryprovider.audius.co/v1/tracks/search?query='+encodeURIComponent(term)+'&limit=24&app_name=DISCO_MUSIC',{signal:c.signal});
@@ -357,6 +359,7 @@ async function doSearch(term){
   if(srcMode==='aud')return doSearchAud(term);
   const box=document.getElementById('tracks');
   box.innerHTML='<p class="muted" style="text-align:center">Buscando… ⏳</p>';
+  document.getElementById('fullErr').style.display='none';
   try{
     const c=new AbortController();const t=setTimeout(()=>c.abort(),20000);
     const r=await fetch('https://itunes.apple.com/search?term='+encodeURIComponent(term)+'&media=music&entity=song&limit=24&country=US',{signal:c.signal});
@@ -463,6 +466,35 @@ document.getElementById('ytKeyGo').addEventListener('click',()=>{
   store2.set('yt_key',v);
   alert(v?'Llave guardada 🔑 El botón ▶ Completa ahora usa YouTube oficial.':'Llave borrada.');
 });
+async function lemnosResolve(query){
+  try{
+    const c=new AbortController();const t=setTimeout(()=>c.abort(),10000);
+    const r=await fetch('https://yt.lemnoslife.com/noKey/search?q='+encodeURIComponent(query),{signal:c.signal});
+    clearTimeout(t);
+    if(!r.ok)return null;
+    const j=await r.json();
+    let streams=j.relatedStreams||j.items||j.results||j.videos||[];
+    if(!streams.length&&(j.playlistId||j.playlistid)){
+      try{
+        const c2=new AbortController();const t2=setTimeout(()=>c2.abort(),10000);
+        const r2=await fetch('https://yt.lemnoslife.com/noKey/playlists/'+(j.playlistId||j.playlistid),{signal:c2.signal});
+        clearTimeout(t2);
+        if(r2.ok){const j2=await r2.json();streams=j2.relatedStreams||j2.items||j2.results||[]}
+      }catch(e){}
+    }
+    const it=(streams||[]).find(v=>v&&(v.url||v.videoId||v.id));
+    if(!it)return null;
+    if(it.url){const m=String(it.url).match(/v=([A-Za-z0-9_-]{11})/);if(m)return m[1]}
+    const m2=String(it.videoId||it.id||'').match(/([A-Za-z0-9_-]{11})/);
+    return m2?m2[1]:null;
+  }catch(e){return null}
+}
+function showFullErr(x){
+  const e=document.getElementById('fullErr');
+  e.style.display='';
+  e.innerHTML=`⚠️ No se pudo cargar "<b>${escH(x.t)}</b>" sola (los resolvedores gratis están caídos). Ábrela con 1 toque:<div class="rowbtns" style="justify-content:flex-start;margin-top:8px"><a class="btn primary" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${encodeURIComponent(x.a+' '+x.t)}">▶ YouTube</a><a class="btn" target="_blank" rel="noopener" href="https://open.spotify.com/search/${encodeURIComponent(x.t+' '+x.a)}">🟢 Spotify</a><button class="btn" id="fullKeyGo" type="button">🔑 Poner llave</button></div>`;
+  document.getElementById('fullKeyGo').addEventListener('click',()=>{showTab('yt');setTimeout(()=>{const k=document.getElementById('ytKey');if(k){try{k.focus()}catch(_){}k.scrollIntoView({block:'center'})}},150)});
+}
 async function playFull(i,btn){
   const x=queue[i];if(!x)return;
   const old=btn?btn.textContent:'▶';
@@ -471,15 +503,15 @@ async function playFull(i,btn){
   let id=null;
   const yk=store2.get('yt_key','');
   if(yk)id=await ytOfficial(x.a+' '+x.t,yk);
+  if(!id)id=await lemnosResolve(x.a+' '+x.t);
   if(!id)id=await resolveYT(x.a+' - '+x.t+' official audio');
   if(btn)btn.textContent=old;
   if(!id){
     if(btn)btn.textContent=old;
-    if(confirm('No se pudo cargar sola 😢 ¿Abrir la búsqueda en YouTube para darle play con 1 toque?')){
-      window.open('https://www.youtube.com/results?search_query='+encodeURIComponent(x.a+' '+x.t),'_blank','noopener');
-    }
+    showFullErr(x);
     return;
   }
+  document.getElementById('fullErr').style.display='none';
   if(playing){playing=false;kill();document.getElementById('playBtn').textContent='▶ Escuchar'}
   showTab('yt');
   ytLoad(id,x.t+' — '+x.a);
