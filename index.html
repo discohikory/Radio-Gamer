@@ -98,6 +98,7 @@ body.hasbar{padding-bottom:110px}
   </div>
   <div class="tabs">
     <button class="tab on" id="tabSongs" type="button">🎵 Canciones</button>
+    <button class="tab" id="tabYT" type="button">▶️ YouTube</button>
     <button class="tab" id="tabAmb" type="button">🎚️ Ambiente ∞</button>
   </div>
   <div class="card glass" id="songsCard">
@@ -106,7 +107,22 @@ body.hasbar{padding-bottom:110px}
     <div class="gchips" id="gchips"></div>
     <div class="gchips"><button class="gchip" id="likesBtn" type="button">❤️ Mis me gusta (<span id="likesN">0</span>)</button><button class="gchip" id="expBtn" type="button">🚫 Ocultar 🔞 E</button></div>
     <div class="tracks" id="tracks"><p class="muted" style="text-align:center">Busca algo o toca un género 🎧</p></div>
-    <p class="muted" style="font-size:11px;margin:10px 0 0">© Previews de 30 segundos licenciados por Apple (iTunes Search API). Canción completa con los botones 🟢/🍎 de cada tema. El modo Ambiente ∞ es 100% sintetizado y libre de copyright.</p>
+    <p class="muted" style="font-size:11px;margin:10px 0 0">© Previews de 30 segundos licenciados por Apple (iTunes Search API). Canción completa con los botones 🟢/🍎 de cada tema o en la pestaña ▶️ YouTube. El modo Ambiente ∞ es 100% sintetizado y libre de copyright.</p>
+  </div>
+  <div class="card glass" id="ytCard" style="display:none">
+    <h2 class="st">▶️ YouTube <small class="muted">· canciones COMPLETAS (con anuncios que pagan al artista)</small></h2>
+    <div class="gchips" id="ytStreams"></div>
+    <div class="searchbar"><input id="ytUrl" maxlength="120" placeholder="Pega link de YouTube… (ej: youtube.com/watch?v=…)"><button class="btn primary" id="ytGo" type="button">Reproducir</button></div>
+    <div id="ytWrap" style="display:none">
+      <div id="ytFrame" style="border-radius:10px;overflow:hidden"></div>
+      <div class="rowbtns">
+        <button class="btn" id="ytPlay" type="button">⏸ Pausar</button>
+        <button class="btn" id="ytMute" type="button">🔊</button>
+        <input type="range" id="ytVol" min="0" max="100" value="80" style="max-width:140px" title="Volumen">
+      </div>
+      <p class="muted" id="ytNow" style="text-align:center"></p>
+    </div>
+    <p class="muted" style="font-size:11px;margin:10px 0 0">© Reproductor oficial embebido de YouTube: legal, el artista gana con los anuncios. Algunos videos bloquean el embed y pedirán verlo en YouTube.</p>
   </div>
   <div class="card glass" id="ambCard" style="display:none">
     <h2 class="st">🎚️ Estaciones <small class="muted">· ambiente infinito sin copyright</small></h2>
@@ -415,14 +431,61 @@ document.getElementById('expBtn').addEventListener('click',e=>{
 function runSearch(){const v=document.getElementById('sq').value.trim();if(!v)return;showLikes=false;document.getElementById('likesBtn').classList.remove('on');gc.querySelectorAll('.gchip').forEach(x=>x.classList.remove('on'));doSearch(v)}
 document.getElementById('sgo').addEventListener('click',runSearch);
 document.getElementById('sq').addEventListener('keydown',e=>{if(e.key==='Enter')runSearch()});
-document.getElementById('tabSongs').addEventListener('click',()=>{
-  document.getElementById('tabSongs').classList.add('on');document.getElementById('tabAmb').classList.remove('on');
-  document.getElementById('songsCard').style.display='';document.getElementById('ambCard').style.display='none';
+function showTab(which){
+  const tabs={songs:['tabSongs','songsCard'],yt:['tabYT','ytCard'],amb:['tabAmb','ambCard']};
+  Object.values(tabs).forEach(([b,c])=>{document.getElementById(b).classList.remove('on');document.getElementById(c).style.display='none'});
+  document.getElementById(tabs[which][0]).classList.add('on');
+  document.getElementById(tabs[which][1]).style.display='';
+  if(which==='yt')ytInit();
+}
+document.getElementById('tabSongs').addEventListener('click',()=>showTab('songs'));
+document.getElementById('tabYT').addEventListener('click',()=>showTab('yt'));
+document.getElementById('tabAmb').addEventListener('click',()=>showTab('amb'));
+// ===== YouTube: canciones completas con el player oficial embebido =====
+const YT_STREAMS=[["💜 Lo-Fi 24/7","jfKfPfyJRdk","Lofi Girl en vivo"],["☕ Chillhop 24/7","5yx6BWlEVcY","Chillhop Radio en vivo"],["🌃 Synthwave 24/7","4xDzrJKXOOY","Synthwave Radio en vivo"]];
+let ytPlayer=null,ytReady=false,ytPending=null;
+document.getElementById('ytStreams').innerHTML=YT_STREAMS.map(s=>`<button class="gchip" data-yt="${s[1]}" data-name="${s[2]}">${s[0]}</button>`).join('');
+document.getElementById('ytStreams').querySelectorAll('[data-yt]').forEach(b=>b.addEventListener('click',()=>ytLoad(b.dataset.yt,b.dataset.name)));
+function ytInit(){
+  if(ytReady||document.querySelector('script[data-ytapi]'))return;
+  const s=document.createElement('script');
+  s.src='https://www.youtube.com/iframe_api';s.dataset.ytapi='1';
+  document.head.appendChild(s);
+}
+window.onYouTubeIframeAPIReady=function(){ytReady=true;if(ytPending){ytLoad(...ytPending);ytPending=null}};
+function ytIdFromUrl(u){
+  const m=String(u||'').match(/(?:v=|youtu\.be\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/);
+  return m?m[1]:null;
+}
+function ytLoad(id,name){
+  document.getElementById('ytWrap').style.display='';
+  document.getElementById('ytNow').textContent='▶ '+(name||'YouTube')+' (carga el player…)';
+  if(!ytReady){ytPending=[id,name];ytInit();return}
+  if(ytPlayer&&ytPlayer.loadVideoById){ytPlayer.loadVideoById(id)}
+  else{
+    ytPlayer=new YT.Player('ytFrame',{width:'100%',height:'200',videoId:id,playerVars:{autoplay:1,rel:0},events:{
+      onReady:e=>{try{e.target.setVolume(Number(document.getElementById('ytVol').value))}catch(_){}document.getElementById('ytPlay').textContent='⏸ Pausar'},
+      onStateChange:e=>{document.getElementById('ytPlay').textContent=(e.data===YT.PlayerState.PLAYING)?'⏸ Pausar':'▶ Seguir'}
+    }});
+  }
+  document.getElementById('ytNow').textContent='▶ '+(name||'YouTube');
+}
+document.getElementById('ytGo').addEventListener('click',()=>{
+  const id=ytIdFromUrl(document.getElementById('ytUrl').value);
+  if(!id){alert('Pega un link válido de YouTube. 🔗');return}
+  ytLoad(id,'Video de YouTube');
 });
-document.getElementById('tabAmb').addEventListener('click',()=>{
-  document.getElementById('tabAmb').classList.add('on');document.getElementById('tabSongs').classList.remove('on');
-  document.getElementById('ambCard').style.display='none';document.getElementById('ambCard').style.display='';
+document.getElementById('ytPlay').addEventListener('click',()=>{
+  if(!ytPlayer||!ytPlayer.getPlayerState)return;
+  if(ytPlayer.getPlayerState()===YT.PlayerState.PLAYING)ytPlayer.pauseVideo();
+  else ytPlayer.playVideo();
 });
+document.getElementById('ytMute').addEventListener('click',e=>{
+  if(!ytPlayer||!ytPlayer.isMuted)return;
+  if(ytPlayer.isMuted()){ytPlayer.unMute();e.target.textContent='🔊'}
+  else{ytPlayer.mute();e.target.textContent='🔇'}
+});
+document.getElementById('ytVol').addEventListener('input',e=>{try{ytPlayer.setVolume(Number(e.target.value))}catch(_){}});
 renderTracks();
 doSearch('lofi hip hop');
 (function(){
