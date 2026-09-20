@@ -370,7 +370,7 @@ async function doSearch(term){
   document.getElementById('fullErr').style.display='none';
   try{
     const c=new AbortController();const t=setTimeout(()=>c.abort(),20000);
-    const r=await fetch('https://itunes.apple.com/search?term='+encodeURIComponent(term)+'&media=music&entity=song&limit=24&country=US',{signal:c.signal});
+    const r=await fetch('https://itunes.apple.com/search?term='+encodeURIComponent(term)+'&media=music&entity=song&limit=24&country=CO',{signal:c.signal});
     clearTimeout(t);
     if(!r.ok)throw 0;
     const j=await r.json();
@@ -428,7 +428,7 @@ function applePlay(x){
   const emb=x.apple.replace('music.apple.com','embed.music.apple.com');
   document.getElementById('appleTitle').textContent='🍎 '+x.t;
   document.getElementById('appleOpen').href=x.apple;
-  document.getElementById('appleFrame').innerHTML='<iframe src="'+emb+'&app=music" height="175" width="100%" frameborder="0" allow="autoplay *; encrypted-media *; fullscreen *" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation" style="width:100%;border-radius:10px;background:#000"></iframe>';
+  document.getElementById('appleFrame').innerHTML='<iframe src="'+emb+'&app=music" height="175" width="100%" frameborder="0" allow="autoplay *; encrypted-media *; fullscreen *" style="width:100%;border-radius:10px;background:#000"></iframe>';
   document.getElementById('appleModal').style.display='grid';
 }
 document.getElementById('appleClose').addEventListener('click',()=>{
