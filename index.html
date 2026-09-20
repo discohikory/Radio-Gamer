@@ -105,7 +105,7 @@ body.hasbar{padding-bottom:110px}
     <h2 class="st">🔎 Buscar música</h2>
     <div class="searchbar"><input id="sq" maxlength="60" placeholder="Artista, canción o género… (ej: Bad Bunny)"><button class="btn primary" id="sgo" type="button">Buscar</button></div>
     <div class="gchips" id="gchips"></div>
-    <div class="gchips"><button class="gchip" id="likesBtn" type="button">❤️ Mis me gusta (<span id="likesN">0</span>)</button><button class="gchip" id="expBtn" type="button">🚫 Ocultar 🔞 E</button></div>
+    <div class="gchips"><button class="gchip" id="srcBtn" type="button">🆓 Solo completas: off</button><button class="gchip" id="likesBtn" type="button">❤️ Mis me gusta (<span id="likesN">0</span>)</button><button class="gchip" id="expBtn" type="button">🚫 Ocultar 🔞 E</button></div>
     <div class="tracks" id="tracks"><p class="muted" style="text-align:center">Busca algo o toca un género 🎧</p></div>
     <p class="muted" style="font-size:11px;margin:10px 0 0">Toca una canción = preview 30s · botón ▶ = versión COMPLETA automática · 🟢/🍎 = app oficial.</p>
   </div>
@@ -113,6 +113,10 @@ body.hasbar{padding-bottom:110px}
     <h2 class="st">▶️ YouTube <small class="muted">· canciones COMPLETAS (con anuncios que pagan al artista)</small></h2>
     <div class="gchips" id="ytStreams"></div>
     <div class="searchbar"><input id="ytUrl" maxlength="120" placeholder="Pega link de YouTube… (ej: youtube.com/watch?v=…)"><button class="btn primary" id="ytGo" type="button">Reproducir</button></div>
+    <details style="margin:10px 0"><summary class="muted" style="cursor:pointer;font-size:12px">🔑 Llave de YouTube (opcional: hace el botón ▶ Completa 100% confiable)</summary>
+      <div class="searchbar"><input id="ytKey" maxlength="60" placeholder="Pega tu API key de YouTube Data v3…" style="font-size:12px"><button class="btn" id="ytKeyGo" type="button">Guardar</button></div>
+      <p class="muted" style="font-size:11px">Gratis en <b>console.cloud.google.com</b> → crear proyecto → habilitar <b>YouTube Data API v3</b> → Credenciales → copiar key. Se guarda solo en tu dispositivo.</p>
+    </details>
     <div id="ytWrap" style="display:none">
       <div id="ytFrame" style="border-radius:10px;overflow:hidden"></div>
       <p class="muted" id="ytErr" style="display:none;text-align:center">⚠️ Este video bloqueó la reproducción embebida. <a id="ytOpen" href="#" target="_blank" rel="noopener" style="color:#b39aff">Abrirlo en YouTube ↗</a></p>
@@ -325,7 +329,32 @@ gc.querySelectorAll('[data-g]').forEach(b=>b.addEventListener('click',()=>{
   doSearch(b.dataset.g);
 }));
 function escH(s){const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML}
+let srcMode='it';
+document.getElementById('srcBtn').addEventListener('click',e=>{
+  srcMode=srcMode==='it'?'aud':'it';
+  const on=srcMode==='aud';
+  e.currentTarget.textContent=on?'🆓 Solo completas: ON':'🆓 Solo completas: off';
+  e.currentTarget.classList.toggle('on',on);
+  const v=document.getElementById('sq').value.trim()||'lofi hip hop';
+  doSearch(v);
+});
+function fmtDur(s){s=Math.round(Number(s)||0);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+async function doSearchAud(term){
+  const box=document.getElementById('tracks');
+  box.innerHTML='<p class="muted" style="text-align:center">Buscando completas… ⏳</p>';
+  try{
+    const c=new AbortController();const t=setTimeout(()=>c.abort(),20000);
+    const r=await fetch('https://discoveryprovider.audius.co/v1/tracks/search?query='+encodeURIComponent(term)+'&limit=24&app_name=DISCO_MUSIC',{signal:c.signal});
+    clearTimeout(t);
+    if(!r.ok)throw 0;
+    const j=await r.json();
+    queue=(j.data||[]).filter(x=>x&&x.streamable!==false).map(x=>({id:'au'+x.id,t:x.title,a:(x.user&&x.user.name)||'Desconocido',g:x.genre||'Audius',d:fmtDur(x.duration),full:true,art:(x.artwork&&(x.artwork['480x480']||x.artwork['150x150']))||'',url:'https://discoveryprovider.audius.co/v1/tracks/'+x.id+'/stream?app_name=DISCO_MUSIC',exp:false,apple:'https://audius.co'}));
+    qi=-1;renderTracks();
+    if(!queue.length)box.innerHTML='<p class="muted" style="text-align:center">Sin resultados. Prueba otro término. 🔎</p>';
+  }catch(e){box.innerHTML='<p class="muted" style="text-align:center">Audius no responde. Intenta luego. ⚠️</p>'}
+}
 async function doSearch(term){
+  if(srcMode==='aud')return doSearchAud(term);
   const box=document.getElementById('tracks');
   box.innerHTML='<p class="muted" style="text-align:center">Buscando… ⏳</p>';
   try{
@@ -334,7 +363,7 @@ async function doSearch(term){
     clearTimeout(t);
     if(!r.ok)throw 0;
     const j=await r.json();
-    queue=(j.results||[]).filter(x=>x.previewUrl).map(x=>({id:x.trackId,t:x.trackName,a:x.artistName,g:x.primaryGenreName||'',art:(x.artworkUrl100||'').replace('100x100bb','200x200bb'),url:x.previewUrl,exp:x.trackExplicitness==='explicit',apple:x.trackViewUrl}));
+    queue=(j.results||[]).filter(x=>x.previewUrl).map(x=>({id:'it'+x.trackId,t:x.trackName,a:x.artistName,g:x.primaryGenreName||'',d:'0:30',full:false,art:(x.artworkUrl100||'').replace('100x100bb','200x200bb'),url:x.previewUrl,exp:x.trackExplicitness==='explicit',apple:x.trackViewUrl}));
     qi=-1;renderTracks();
     if(!queue.length)box.innerHTML='<p class="muted" style="text-align:center">Sin resultados. Prueba otro término. 🔎</p>';
   }catch(e){box.innerHTML='<p class="muted" style="text-align:center">Sin conexión con Apple Music. Revisa tu internet. ⚠️</p>'}
@@ -351,7 +380,7 @@ function renderTracks(){
     const i=queue.indexOf(x);
     return `<div class="track${i===qi?' playing':''}" data-i="${i}">
       <img src="${x.art}" alt="portada" loading="lazy">
-      <div><div class="t">${escH(x.t)}${x.exp?'<span class="ebadge">E</span>':''}</div><div class="a">${escH(x.a)} · ${escH(x.g)} · 0:30</div></div>
+      <div><div class="t">${escH(x.t)}${x.full?'<span class="ebadge" style="border-color:#4ade80;color:#4ade80">FULL</span>':''}${x.exp?'<span class="ebadge">E</span>':''}</div><div class="a">${escH(x.a)} · ${escH(x.g)} · ${escH(x.d||'0:30')}</div></div>
       <div class="tacts">
         <button class="iconbtn" data-full="${i}" title="Versión COMPLETA automática">▶ Completa</button>
         <button class="iconbtn${isLiked(x.id)?' liked':''}" data-like="${i}" title="Me gusta">${isLiked(x.id)?'❤️':'🤍'}</button>
@@ -368,7 +397,7 @@ function renderTracks(){
     e.stopPropagation();
     const x=queue[Number(b.dataset.like)];
     if(isLiked(x.id))liked=liked.filter(l=>l.id!==x.id);
-    else liked.unshift({id:x.id,t:x.t,a:x.a,g:x.g,art:x.art,url:x.url,exp:x.exp,apple:x.apple});
+    else liked.unshift({id:x.id,t:x.t,a:x.a,g:x.g,d:x.d||'0:30',full:!!x.full,art:x.art,url:x.url,exp:x.exp,apple:x.apple});
     store2.set('disco_likes',liked.slice(0,200));
     renderTracks();paintLike();
   }));
@@ -417,12 +446,32 @@ async function resolveYT(query){
     return null;
   }catch(e){return null}
 }
+async function ytOfficial(query,key){
+  try{
+    const c=new AbortController();const t=setTimeout(()=>c.abort(),12000);
+    const r=await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q='+encodeURIComponent(query)+'&key='+encodeURIComponent(key),{signal:c.signal});
+    clearTimeout(t);
+    if(!r.ok)return null;
+    const j=await r.json();
+    const it=(j.items||[])[0];
+    return (it&&it.id&&it.id.videoId)||null;
+  }catch(e){return null}
+}
+(function(){const k=document.getElementById('ytKey');try{k.value=store2.get('yt_key','');k.type='password'}catch(e){}})();
+document.getElementById('ytKeyGo').addEventListener('click',()=>{
+  const v=document.getElementById('ytKey').value.trim();
+  store2.set('yt_key',v);
+  alert(v?'Llave guardada 🔑 El botón ▶ Completa ahora usa YouTube oficial.':'Llave borrada.');
+});
 async function playFull(i,btn){
   const x=queue[i];if(!x)return;
   const old=btn?btn.textContent:'▶';
   if(btn)btn.textContent='⏳';
   try{au.pause()}catch(_){}
-  const id=await resolveYT(x.a+' - '+x.t+' official audio');
+  let id=null;
+  const yk=store2.get('yt_key','');
+  if(yk)id=await ytOfficial(x.a+' '+x.t,yk);
+  if(!id)id=await resolveYT(x.a+' - '+x.t+' official audio');
   if(btn)btn.textContent=old;
   if(!id){
     if(btn)btn.textContent=old;
@@ -449,8 +498,8 @@ function playAt(i){
   document.getElementById('playerBar').classList.add('show');
   document.body.classList.add('hasbar');
   document.getElementById('pbArt').src=x.art;
-  document.getElementById('pbTitle').textContent=x.t;
-  document.getElementById('pbArtist').textContent=x.a+' · '+x.g;
+  document.getElementById('pbTitle').textContent=x.t+(x.full?' (FULL 🆓)':'');
+  document.getElementById('pbArtist').textContent=x.a+' · '+(x.g||'')+' · '+(x.d||'0:30');
   document.getElementById('pbPlay').textContent='⏸';
   paintLike();renderTracks();
   try{
@@ -462,10 +511,12 @@ function playAt(i){
   }catch(e){}
 }
 au.addEventListener('ended',()=>{if(queue.length)playAt((qi+1)%queue.length)});
+let errN=0;
+au.addEventListener('error',()=>{errN++;if(errN>3||!queue.length||qi<0){errN=0;return}playAt((qi+1)%queue.length)});
 au.addEventListener('timeupdate',()=>{
   if(au.duration)document.getElementById('pbFill').style.width=(au.currentTime/au.duration*100)+'%';
 });
-au.addEventListener('play',()=>{document.getElementById('pbPlay').textContent='⏸'});
+au.addEventListener('play',()=>{errN=0;document.getElementById('pbPlay').textContent='⏸'});
 au.addEventListener('pause',()=>{document.getElementById('pbPlay').textContent='▶'});
 document.getElementById('pbProg').addEventListener('click',e=>{
   const r=e.currentTarget.getBoundingClientRect();
@@ -477,7 +528,7 @@ document.getElementById('pbPrev').addEventListener('click',()=>{if(queue.length)
 document.getElementById('pbLike').addEventListener('click',()=>{
   const x=queue[qi];if(!x)return;
   if(isLiked(x.id))liked=liked.filter(l=>l.id!==x.id);
-  else liked.unshift({id:x.id,t:x.t,a:x.a,g:x.g,art:x.art,url:x.url,exp:x.exp,apple:x.apple});
+  else liked.unshift({id:x.id,t:x.t,a:x.a,g:x.g,d:x.d||'0:30',full:!!x.full,art:x.art,url:x.url,exp:x.exp,apple:x.apple});
   store2.set('disco_likes',liked.slice(0,200));
   paintLike();renderTracks();
 });
