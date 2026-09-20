@@ -352,7 +352,7 @@ function renderTracks(){
       <img src="${x.art}" alt="portada" loading="lazy">
       <div><div class="t">${escH(x.t)}${x.exp?'<span class="ebadge">E</span>':''}</div><div class="a">${escH(x.a)} · ${escH(x.g)} · 0:30</div></div>
       <div class="tacts">
-        <button class="iconbtn" data-full="${i}" title="Versión COMPLETA automática">▶</button>
+        <button class="iconbtn" data-full="${i}" title="Versión COMPLETA automática">▶ Completa</button>
         <button class="iconbtn${isLiked(x.id)?' liked':''}" data-like="${i}" title="Me gusta">${isLiked(x.id)?'❤️':'🤍'}</button>
         <a class="iconbtn" href="https://open.spotify.com/search/${encodeURIComponent(x.t+' '+x.a)}" target="_blank" rel="noopener" title="Abrir en Spotify">🟢</a>
         <a class="iconbtn" href="${x.apple}" target="_blank" rel="noopener" title="Abrir en Apple Music">🍎</a>
@@ -376,13 +376,14 @@ function renderTracks(){
     playFull(Number(b.dataset.full),b);
   }));
 }
-const PIPED=["https://pipedapi.kavin.rocks","https://pipedapi.adminforge.de","https://pipedapi.reallyaweso.me","https://pipedapi.leptons.xyz","https://pipedapi.syncpundit.io"];
+const PIPED=["https://pipedapi.kavin.rocks","https://pipedapi.adminforge.de","https://pipedapi.reallyaweso.me","https://pipedapi.syncpundit.io","https://pipedapi.leptons.xyz"];
+const INVID=["https://inv.nadeko.net","https://iv.melmac.space","https://invidious.nerdvpn.de","https://inv.tux.pizza"];
 const ytCache={};
 async function resolveYT(query){
   if(ytCache[query])return ytCache[query];
   for(const base of PIPED){
     try{
-      const c=new AbortController();const t=setTimeout(()=>c.abort(),12000);
+      const c=new AbortController();const t=setTimeout(()=>c.abort(),10000);
       const r=await fetch(base+'/search?q='+encodeURIComponent(query)+'&filter=videos',{signal:c.signal});
       clearTimeout(t);
       if(!r.ok)continue;
@@ -394,6 +395,17 @@ async function resolveYT(query){
       }
     }catch(e){/* siguiente instancia */}
   }
+  for(const base of INVID){
+    try{
+      const c=new AbortController();const t=setTimeout(()=>c.abort(),10000);
+      const r=await fetch(base+'/api/v1/search?q='+encodeURIComponent(query)+'&type=video',{signal:c.signal});
+      clearTimeout(t);
+      if(!r.ok)continue;
+      const j=await r.json();
+      const item=(j||[]).find(v=>v.videoId);
+      if(item){ytCache[query]=item.videoId;return item.videoId}
+    }catch(e){/* siguiente instancia */}
+  }
   return null;
 }
 async function playFull(i,btn){
@@ -403,7 +415,13 @@ async function playFull(i,btn){
   try{au.pause()}catch(_){}
   const id=await resolveYT(x.a+' - '+x.t+' official audio');
   if(btn)btn.textContent=old;
-  if(!id){alert('No encontré la versión completa automática 😢 Dale 🟢/🍎 o pégala en la pestaña ▶️ YouTube.');return}
+  if(!id){
+    if(btn)btn.textContent=old;
+    if(confirm('No se pudo cargar sola 😢 ¿Abrir la búsqueda en YouTube para darle play con 1 toque?')){
+      window.open('https://www.youtube.com/results?search_query='+encodeURIComponent(x.a+' '+x.t),'_blank','noopener');
+    }
+    return;
+  }
   if(playing){playing=false;kill();document.getElementById('playBtn').textContent='▶ Escuchar'}
   showTab('yt');
   ytLoad(id,x.t+' — '+x.a);
