@@ -115,6 +115,7 @@ body.hasbar{padding-bottom:110px}
     <div class="searchbar"><input id="ytUrl" maxlength="120" placeholder="Pega link de YouTube… (ej: youtube.com/watch?v=…)"><button class="btn primary" id="ytGo" type="button">Reproducir</button></div>
     <div id="ytWrap" style="display:none">
       <div id="ytFrame" style="border-radius:10px;overflow:hidden"></div>
+      <p class="muted" id="ytErr" style="display:none;text-align:center">⚠️ Este video bloqueó la reproducción embebida. <a id="ytOpen" href="#" target="_blank" rel="noopener" style="color:#b39aff">Abrirlo en YouTube ↗</a></p>
       <div class="rowbtns">
         <button class="btn" id="ytPlay" type="button">⏸ Pausar</button>
         <button class="btn" id="ytMute" type="button">🔊</button>
@@ -381,32 +382,40 @@ const INVID=["https://inv.nadeko.net","https://iv.melmac.space","https://invidio
 const ytCache={};
 async function resolveYT(query){
   if(ytCache[query])return ytCache[query];
-  for(const base of PIPED){
-    try{
-      const c=new AbortController();const t=setTimeout(()=>c.abort(),10000);
-      const r=await fetch(base+'/search?q='+encodeURIComponent(query)+'&filter=videos',{signal:c.signal});
-      clearTimeout(t);
-      if(!r.ok)continue;
-      const j=await r.json();
-      const items=(j.items||[]).filter(v=>v.url&&v.url.indexOf('/watch?v=')===0);
-      if(items.length){
-        const id=items[0].url.split('v=')[1].slice(0,11);
-        ytCache[query]=id;return id;
-      }
-    }catch(e){/* siguiente instancia */}
-  }
-  for(const base of INVID){
-    try{
-      const c=new AbortController();const t=setTimeout(()=>c.abort(),10000);
-      const r=await fetch(base+'/api/v1/search?q='+encodeURIComponent(query)+'&type=video',{signal:c.signal});
-      clearTimeout(t);
-      if(!r.ok)continue;
-      const j=await r.json();
-      const item=(j||[]).find(v=>v.videoId);
-      if(item){ytCache[query]=item.videoId;return item.videoId}
-    }catch(e){/* siguiente instancia */}
-  }
-  return null;
+  const jobs=[];
+  const mk=(base,kind)=>{
+    jobs.push((async()=>{
+      const c=new AbortController();const t=setTimeout(()=>c.abort(),8000);
+      try{
+        const url=kind==='piped'
+          ? base+'/search?q='+encodeURIComponent(query)+'&filter=videos'
+          : base+'/api/v1/search?q='+encodeURIComponent(query)+'&type=video';
+        const r=await fetch(url,{signal:c.signal});
+        if(!r.ok)throw 0;
+        const j=await r.json();
+        if(kind==='piped'){
+          const it=(j.items||[]).find(v=>v.url&&v.url.indexOf('/watch?v=')===0);
+          if(!it)throw 0;
+          return it.url.split('v=')[1].slice(0,11);
+        }
+        const it=(j||[]).find(v=>v.videoId);
+        if(!it)throw 0;
+        return it.videoId;
+      }finally{clearTimeout(t)}
+    })());
+  };
+  PIPED.forEach(b=>mk(b,'piped'));
+  INVID.forEach(b=>mk(b,'inv'));
+  try{
+    if(typeof Promise.any==='function'){
+      const wins=await Promise.any(jobs);
+      ytCache[query]=wins;return wins;
+    }
+    const all=await Promise.allSettled(jobs);
+    const ok=all.find(r=>r.status==='fulfilled');
+    if(ok){ytCache[query]=ok.value;return ok.value}
+    return null;
+  }catch(e){return null}
 }
 async function playFull(i,btn){
   const x=queue[i];if(!x)return;
@@ -498,7 +507,8 @@ document.getElementById('tabYT').addEventListener('click',()=>showTab('yt'));
 document.getElementById('tabAmb').addEventListener('click',()=>showTab('amb'));
 // ===== YouTube: canciones completas con el player oficial embebido =====
 const YT_STREAMS=[["💜 Lo-Fi 24/7","jfKfPfyJRdk","Lofi Girl en vivo"],["☕ Chillhop 24/7","5yx6BWlEVcY","Chillhop Radio en vivo"],["🌃 Synthwave 24/7","4xDzrJKXOOY","Synthwave Radio en vivo"]];
-let ytPlayer=null,ytReady=false,ytPending=null;
+let ytPlayer=null,ytReady=false,ytPending=null,ytLastId=null;
+const IS_IOS_R=/iPad|iPhone|iPod/.test(navigator.userAgent||"")||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 document.getElementById('ytStreams').innerHTML=YT_STREAMS.map(s=>`<button class="gchip" data-yt="${s[1]}" data-name="${s[2]}">${s[0]}</button>`).join('');
 document.getElementById('ytStreams').querySelectorAll('[data-yt]').forEach(b=>b.addEventListener('click',()=>ytLoad(b.dataset.yt,b.dataset.name)));
 function ytInit(){
@@ -513,17 +523,23 @@ function ytIdFromUrl(u){
   return m?m[1]:null;
 }
 function ytLoad(id,name){
+  ytLastId=id;
   document.getElementById('ytWrap').style.display='';
+  document.getElementById('ytErr').style.display='none';
+  document.getElementById('ytOpen').href='https://www.youtube.com/watch?v='+id;
   document.getElementById('ytNow').textContent='▶ '+(name||'YouTube')+' (carga el player…)';
   if(!ytReady){ytPending=[id,name];ytInit();return}
-  if(ytPlayer&&ytPlayer.loadVideoById){ytPlayer.loadVideoById(id)}
+  // iOS bloquea el autoplay con sonido: se carga en pausa y el usuario le da play (gesto válido)
+  const loadIt=()=>{try{if(IS_IOS_R)ytPlayer.cueVideoById(id);else ytPlayer.loadVideoById(id)}catch(_){}};
+  if(ytPlayer&&ytPlayer.loadVideoById){loadIt()}
   else{
-    ytPlayer=new YT.Player('ytFrame',{width:'100%',height:'200',videoId:id,playerVars:{autoplay:1,rel:0},events:{
-      onReady:e=>{try{e.target.setVolume(Number(document.getElementById('ytVol').value))}catch(_){}document.getElementById('ytPlay').textContent='⏸ Pausar'},
-      onStateChange:e=>{document.getElementById('ytPlay').textContent=(e.data===YT.PlayerState.PLAYING)?'⏸ Pausar':'▶ Seguir'}
+    ytPlayer=new YT.Player('ytFrame',{width:'100%',height:'200',videoId:id,playerVars:{autoplay:IS_IOS_R?0:1,rel:0,playsinline:1},events:{
+      onReady:e=>{try{e.target.setVolume(Number(document.getElementById('ytVol').value))}catch(_){}if(!IS_IOS_R){try{e.target.playVideo()}catch(_){}}document.getElementById('ytPlay').textContent=IS_IOS_R?'▶ Dale play':'⏸ Pausar'},
+      onStateChange:e=>{document.getElementById('ytPlay').textContent=(e.data===YT.PlayerState.PLAYING)?'⏸ Pausar':'▶ Seguir'},
+      onError:()=>{document.getElementById('ytErr').style.display='';document.getElementById('ytNow').textContent='⚠️ Embed bloqueado por el dueño del video.'}
     }});
   }
-  document.getElementById('ytNow').textContent='▶ '+(name||'YouTube');
+  document.getElementById('ytNow').textContent=IS_IOS_R?('▶ '+(name||'YouTube')+' — toca ▶ en el video para sonar'):'▶ '+(name||'YouTube');
 }
 document.getElementById('ytGo').addEventListener('click',()=>{
   const id=ytIdFromUrl(document.getElementById('ytUrl').value);
