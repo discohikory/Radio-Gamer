@@ -108,7 +108,7 @@ body.hasbar{padding-bottom:110px}
     <div class="gchips"><button class="gchip" id="srcBtn" type="button">🆓 Solo completas: off</button><button class="gchip" id="likesBtn" type="button">❤️ Mis me gusta (<span id="likesN">0</span>)</button><button class="gchip" id="expBtn" type="button">🚫 Ocultar 🔞 E</button></div>
     <div class="tracks" id="tracks"><p class="muted" style="text-align:center">Busca algo o toca un género 🎧</p></div>
     <div id="fullErr" class="glass" style="display:none;padding:14px;margin-top:10px;font-size:13px"></div>
-    <p class="muted" style="font-size:11px;margin:10px 0 0">Toca una canción = preview 30s · 🆓 Solo completas = canciones enteras al instante · ▶ Completa = YouTube automático (con tu llave gratis) · 🟢/🍎 = app oficial.</p>
+    <p class="muted" style="font-size:11px;margin:10px 0 0">Toca una canción = preview 30s · 🍎 = player de Apple Music en la página · 🆓 Solo completas = canciones enteras al instante · ▶ Completa = YouTube automático (con tu llave gratis) · 🟢 = app Spotify.</p>
   </div>
   <div class="card glass" id="ytCard" style="display:none">
     <h2 class="st">▶️ YouTube <small class="muted">· canciones COMPLETAS (con anuncios que pagan al artista)</small></h2>
@@ -158,6 +158,14 @@ body.hasbar{padding-bottom:110px}
   </div>
 </section>
 <footer>© 2026 Daniel Esteban Vera Fernandez · <strong>Discohikorybrs</strong> · Todos los derechos reservados.<br><small>Previews © sus artistas/discográficas vía Apple · Ambiente sintetizado libre de copyright. Hecho con ⛏️</small><div class="visits">👁 <span id="visitCount">…</span> visitas</div></footer>
+<div id="appleModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.9);place-items:center;padding:20px">
+  <div class="glass" style="padding:18px;max-width:480px;width:100%">
+    <h2 class="st" id="appleTitle">🍎 Apple Music</h2>
+    <div id="appleFrame" style="border-radius:10px;overflow:hidden;margin:10px 0"></div>
+    <div class="rowbtns" style="justify-content:center"><a class="btn primary" id="appleOpen" href="#" target="_blank" rel="noopener">Abrir en app ↗</a><button type="button" class="btn" id="appleClose">Cerrar</button></div>
+    <p class="muted" style="font-size:11px;text-align:center">Reproductor oficial de Apple: preview de 30s gratis · completa con tu suscripción y sesión iniciada.</p>
+  </div>
+</div>
 <div id="playerBar"><div class="pb-in">
   <img id="pbArt" alt="portada">
   <div class="pb-mid"><div class="pb-title" id="pbTitle">—</div><div class="pb-artist" id="pbArtist">—</div><div class="pb-prog" id="pbProg"><div class="pb-fill" id="pbFill"></div></div></div>
@@ -388,12 +396,12 @@ function renderTracks(){
         <button class="iconbtn" data-full="${i}" title="Versión COMPLETA (requiere llave YouTube, ver pestaña ▶️)">▶ Completa</button>
         <button class="iconbtn${isLiked(x.id)?' liked':''}" data-like="${i}" title="Me gusta">${isLiked(x.id)?'❤️':'🤍'}</button>
         <a class="iconbtn" href="https://open.spotify.com/search/${encodeURIComponent(x.t+' '+x.a)}" target="_blank" rel="noopener" title="Abrir en Spotify">🟢</a>
-        <a class="iconbtn" href="${x.apple}" target="_blank" rel="noopener" title="Abrir en Apple Music">🍎</a>
+        <button class="iconbtn" data-apple="${i}" title="Reproducir en Apple Music">🍎</button>
       </div>
     </div>`;
   }).join('');
   box.querySelectorAll('.track').forEach(el=>el.addEventListener('click',e=>{
-    if(e.target.closest('[data-like]')||e.target.closest('[data-full]')||e.target.closest('a'))return;
+    if(e.target.closest('[data-like]')||e.target.closest('[data-full]')||e.target.closest('[data-apple]')||e.target.closest('a'))return;
     playAt(Number(el.dataset.i));
   }));
   box.querySelectorAll('[data-like]').forEach(b=>b.addEventListener('click',e=>{
@@ -408,7 +416,25 @@ function renderTracks(){
     e.stopPropagation();
     playFull(Number(b.dataset.full),b);
   }));
+  box.querySelectorAll('[data-apple]').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    applePlay(queue[Number(b.dataset.apple)]);
+  }));
 }
+function applePlay(x){
+  if(!x||!x.apple)return;
+  if(x.apple.indexOf('music.apple.com')===-1){window.open(x.apple,'_blank','noopener');return}
+  try{au.pause()}catch(_){}
+  const emb=x.apple.replace('music.apple.com','embed.music.apple.com');
+  document.getElementById('appleTitle').textContent='🍎 '+x.t;
+  document.getElementById('appleOpen').href=x.apple;
+  document.getElementById('appleFrame').innerHTML='<iframe src="'+emb+'&app=music" height="175" width="100%" frameborder="0" allow="autoplay *; encrypted-media *; fullscreen *" sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation" style="width:100%;border-radius:10px;background:#000"></iframe>';
+  document.getElementById('appleModal').style.display='grid';
+}
+document.getElementById('appleClose').addEventListener('click',()=>{
+  document.getElementById('appleFrame').innerHTML='';
+  document.getElementById('appleModal').style.display='none';
+});
 async function ytOfficial(query,key){
   try{
     const c=new AbortController();const t=setTimeout(()=>c.abort(),12000);
